@@ -1,0 +1,7 @@
+.venvq/
+.venv*/
+build/
+dist/
+installer_out/
+__pycache__/
+*.pyc
