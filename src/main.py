@@ -367,7 +367,8 @@ class MainWindow(QMainWindow):
         self.speed_combo = QComboBox()
         for s in ["0.5", "0.75", "0.9", "1.0", "1.1", "1.25", "1.5", "1.75", "2.0", "2.5", "3.0"]:
             self.speed_combo.addItem(f"{s}×", float(s))
-        self.speed_combo.setCurrentText(f"{self.library.settings.get('speed', 1.0):g}×")
+        idx = self.speed_combo.findData(float(self.library.settings.get("speed", 1.0)))
+        self.speed_combo.setCurrentIndex(idx if idx >= 0 else self.speed_combo.findData(1.0))
         self.speed_combo.currentIndexChanged.connect(self.on_speed)
 
         crow.addWidget(self.speed_combo)
