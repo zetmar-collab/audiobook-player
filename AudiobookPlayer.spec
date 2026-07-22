@@ -1,8 +1,8 @@
 # -*- mode: python ; coding: utf-8 -*-
-
+import sys
 
 a = Analysis(
-    ['src\\main.py'],
+    ['src/main.py'],
     pathex=[],
     binaries=[],
     datas=[],
@@ -35,5 +35,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['src\\icon.ico'],
+    icon=['src/icon.ico'] if sys.platform == 'win32' else ['src/icon.png'],
 )

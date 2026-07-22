@@ -1,4 +1,4 @@
-"""Audiobook Player — odtwarzacz audiobooków na Windows.
+"""Audiobook Player — odtwarzacz audiobooków (Windows/Linux).
 
 Funkcje: biblioteka (katalogi i pojedyncze pliki), zapamiętywanie pozycji,
 metadane z lubimyczytac.pl / upolujebooka.pl / Google Books, sortowanie,
@@ -9,7 +9,7 @@ import sys
 import time
 
 from PyQt6.QtCore import Qt, QTimer, QUrl, QSize, pyqtSignal as Signal, QThread
-from PyQt6.QtGui import QAction, QIcon, QPixmap, QPainter, QColor, QFont
+from PyQt6.QtGui import QAction, QDesktopServices, QIcon, QPixmap, QPainter, QColor, QFont
 from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PyQt6.QtWidgets import (
     QApplication, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QHBoxLayout,
@@ -533,8 +533,9 @@ class MainWindow(QMainWindow):
         menu.addAction("Wyzeruj postęp", lambda: self.reset_progress(book))
         menu.addSeparator()
         menu.addAction("Otwórz lokalizację na dysku",
-                       lambda: os.startfile(book["path"] if book["kind"] == "folder"
-                                            else os.path.dirname(book["path"])))
+                       lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(
+                           book["path"] if book["kind"] == "folder"
+                           else os.path.dirname(book["path"]))))
         menu.addAction("Usuń z biblioteki", lambda: self.remove_book(book))
         menu.exec(self.book_list.mapToGlobal(pos))
 

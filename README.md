@@ -1,7 +1,8 @@
 # Audiobook Player
 
-Odtwarzacz audiobooków na Windows. Gotowy program: **`dist\AudiobookPlayer.exe`**
-(pojedynczy plik, niczego nie trzeba instalować).
+Odtwarzacz audiobooków — Windows i Linux. Gotowy program: **`dist\AudiobookPlayer.exe`**
+na Windows / **`dist/AudiobookPlayer`** na Linuksie (pojedynczy plik, niczego nie
+trzeba instalować).
 
 ## Funkcje
 
@@ -22,7 +23,8 @@ Odtwarzacz audiobooków na Windows. Gotowy program: **`dist\AudiobookPlayer.exe`
 
 Obsługiwane formaty: mp3, m4a, m4b, aac, wma, wav, flac, ogg, opus.
 
-Dane biblioteki: `%APPDATA%\AudiobookPlayer\library.json` (+ okładki w `covers\`).
+Dane biblioteki: `%APPDATA%\AudiobookPlayer\library.json` na Windows,
+`~/.local/share/AudiobookPlayer/library.json` na Linuksie (+ okładki w `covers/`).
 Usunięcie tego katalogu = całkowity reset programu.
 
 ## Kod źródłowy i przebudowa
@@ -31,18 +33,61 @@ Usunięcie tego katalogu = całkowity reset programu.
 - `src\library.py` — model biblioteki i zapis JSON
 - `src\metadata.py` — pobieranie metadanych (scrapery + Google Books API)
 
-Przebudowa exe (środowisko w `.venvq`):
+### Windows (środowisko w `.venvq`)
 
 ```powershell
 .venvq\Scripts\pyinstaller.exe --noconfirm --onefile --windowed `
   --name AudiobookPlayer --icon src\icon.ico src\main.py
 ```
 
-Uwaga techniczna: użyto **PyQt6**, bo w PySide6 (6.7–6.11) backend multimediów
-na tej maszynie przerywał odtwarzanie po ~0,5 s (pozycja wracała do zera przy obu
-backendach ffmpeg/windows); PyQt6 odtwarza poprawnie.
+### Linux
 
-## Instalator
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt pyinstaller
+.venv/bin/pyinstaller --noconfirm AudiobookPlayer.spec
+```
+
+Wynik: `dist/AudiobookPlayer`. Integracja z pulpitem (menu aplikacji, ikona):
+
+```bash
+packaging/linux/install.sh
+```
+
+Instaluje binarkę do `~/.local/bin`, plik `.desktop` do `~/.local/share/applications`
+i ikonę do `~/.local/share/icons` — bez `sudo`.
+
+Wymagana biblioteka systemowa (Qt6 XCB, często brakuje na minimalnych
+instalacjach Debiana/Ubuntu): `sudo apt install libxcb-cursor0`. Bez niej okno
+się nie pokaże (błąd `xcb` platform plugin przy starcie na prawdziwym X11/Wayland
+— w trybie `QT_QPA_PLATFORM=offscreen` do smoke testów nie jest potrzebna).
+
+### AppImage (Linux, przenośny — jeden plik, bez instalacji)
+
+```bash
+# jednorazowo: pobierz appimagetool z github.com/AppImage/AppImageKit/releases
+curl -L -o packaging/linux/tools/appimagetool-x86_64.AppImage \
+  https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+chmod +x packaging/linux/tools/appimagetool-x86_64.AppImage
+
+packaging/linux/build-appimage.sh   # -> AudiobookPlayer-x86_64.AppImage
+```
+
+Wynikowy plik jest samodzielny (zawiera już `dist/AudiobookPlayer` + ikonę +
+`.desktop`) — uruchamia się bezpośrednio (`./AudiobookPlayer-x86_64.AppImage`),
+z FUSE lub bez (fallback: `--appimage-extract-and-run`). Wciąż wymaga
+`libxcb-cursor0` w systemie (patrz wyżej) — AppImage nie pakuje bibliotek
+systemowych spoza aplikacji.
+
+Uwaga techniczna: użyto **PyQt6**, bo w PySide6 (6.7–6.11) backend multimediów
+na maszynie deweloperskiej przerywał odtwarzanie po ~0,5 s (pozycja wracała do zera
+przy obu backendach ffmpeg/windows); PyQt6 odtwarza poprawnie. `QtMultimedia`
+jest już zawarty w wheelu `PyQt6` (nie ma osobnego pakietu do doinstalowania).
+Na Linuksie odtwarzanie audio może zależeć od systemowego backendu
+GStreamer/ffmpeg w zależności od dystrybucji — w razie problemów z dźwiękiem
+to pierwsze miejsce do sprawdzenia.
+
+## Instalator (Windows)
 
 Skrypt Inno Setup: `installer.iss`. Budowanie:
 

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Audiobook Player
+Comment=Odtwarzacz audiobooków
+Exec=AudiobookPlayer
+Icon=audiobookplayer
+Terminal=false
+Categories=AudioVideo;Audio;Player;Qt;
+StartupWMClass=AudiobookPlayer

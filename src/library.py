@@ -1,11 +1,27 @@
-"""Model biblioteki audiobooków + trwały zapis do JSON w %APPDATA%."""
+"""Model biblioteki audiobooków + trwały zapis do JSON.
+
+Katalog danych: %APPDATA%\\AudiobookPlayer na Windows,
+$XDG_DATA_HOME/AudiobookPlayer (domyślnie ~/.local/share/AudiobookPlayer) na Linuksie/macOS.
+"""
 import json
 import os
 import re
+import sys
 import time
 import uuid
 
-APP_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "AudiobookPlayer")
+
+def _app_dir():
+    if sys.platform == "win32":
+        base = os.environ.get("APPDATA", os.path.expanduser("~"))
+    elif sys.platform == "darwin":
+        base = os.path.join(os.path.expanduser("~"), "Library", "Application Support")
+    else:
+        base = os.environ.get("XDG_DATA_HOME") or os.path.join(os.path.expanduser("~"), ".local", "share")
+    return os.path.join(base, "AudiobookPlayer")
+
+
+APP_DIR = _app_dir()
 LIBRARY_FILE = os.path.join(APP_DIR, "library.json")
 COVERS_DIR = os.path.join(APP_DIR, "covers")
 
