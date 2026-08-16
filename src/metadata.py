@@ -1,10 +1,15 @@
-"""Pobieranie metadanych: lubimyczytac.pl, upolujebooka.pl, Google Books.
+"""Pobieranie metadanych o książkach z serwisów polskich i zagranicznych.
+
+Źródła polskie: lubimyczytac.pl, upolujebooka.pl
+Źródła zagraniczne: Audible, Apple Books, Google Books, Open Library
 
 Każde źródło zwraca listę słowników:
 {source, title, author, description, cover_url, url}
 Wszystko best-effort — błędy sieci/parsowania dają pustą listę.
 """
+import html as _html
 import re
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 from bs4 import BeautifulSoup
@@ -14,7 +19,9 @@ HEADERS = {
     "(KHTML, like Gecko) Chrome/126.0 Safari/537.36",
     "Accept-Language": "pl-PL,pl;q=0.9,en;q=0.5",
 }
-TIMEOUT = 12
+#: (connect, read) — krótki timeout połączenia, żeby niedostępne źródło
+#: nie opóźniało równoległego wyszukiwania w pozostałych serwisach.
+TIMEOUT = (5, 12)
 
 
 def _get(url, **kw):
@@ -23,6 +30,15 @@ def _get(url, **kw):
 
 def _clean(text):
     return re.sub(r"\s+", " ", text or "").strip()
+
+
+def _strip_html(text):
+    """Usuwa znaczniki HTML i dekoduje encje (opisy z Audible/Apple je zawierają)."""
+    if not text:
+        return ""
+    text = re.sub(r"<br\s*/?>|</p>", " ", text, flags=re.I)
+    text = re.sub(r"<[^>]+>", "", text)
+    return _clean(_html.unescape(text))
 
 
 # ---------------------------------------------------------------- lubimyczytac
@@ -179,22 +195,144 @@ def search_google(query, limit=6):
     return results
 
 
+# -------------------------------------------------------------------- Audible
+
+def search_audible(query, limit=6):
+    """Publiczny katalog Audible — najlepsze źródło dla audiobooków zagranicznych."""
+    results = []
+    try:
+        r = _get("https://api.audible.com/1.0/catalog/products", params={
+            "keywords": query,
+            "num_results": limit,
+            "products_sort_by": "Relevance",
+            "response_groups": "product_desc,media,contributors",
+        })
+        for p in r.json().get("products", [])[:limit]:
+            authors = ", ".join(a.get("name", "") for a in (p.get("authors") or []) if a.get("name"))
+            images = p.get("product_images") or {}
+            cover = images.get("500") or (list(images.values())[0] if images else "")
+            asin = p.get("asin") or ""
+            results.append({
+                "source": "Audible",
+                "title": _clean(p.get("title")),
+                "author": authors,
+                "description": _strip_html(p.get("publisher_summary")
+                                           or p.get("merchandising_summary")),
+                "cover_url": cover,
+                "url": f"https://www.audible.com/pd/{asin}" if asin else "",
+            })
+    except Exception:
+        pass
+    return results
+
+
+# ---------------------------------------------------------------- Apple Books
+
+def search_apple_books(query, limit=6):
+    """iTunes Search API — audiobooki i e-booki ze sklepu Apple Books."""
+    results = []
+    try:
+        r = _get("https://itunes.apple.com/search", params={
+            "term": query, "media": "audiobook", "limit": limit,
+        })
+        items = r.json().get("results", [])
+        if not items:  # brak audiobooka — spróbuj e-booka
+            r = _get("https://itunes.apple.com/search", params={
+                "term": query, "media": "ebook", "limit": limit,
+            })
+            items = r.json().get("results", [])
+        for d in items[:limit]:
+            cover = (d.get("artworkUrl100") or "").replace("100x100bb", "600x600bb")
+            results.append({
+                "source": "Apple Books",
+                "title": _clean(d.get("collectionName") or d.get("trackName")),
+                "author": _clean(d.get("artistName")),
+                "description": _strip_html(d.get("description")),
+                "cover_url": cover,
+                "url": d.get("collectionViewUrl") or d.get("trackViewUrl") or "",
+            })
+    except Exception:
+        pass
+    return results
+
+
+# --------------------------------------------------------------- Open Library
+
+def search_openlibrary(query, limit=6):
+    """Open Library (Internet Archive) — ogromny katalog książek, bez klucza."""
+    results = []
+    try:
+        r = _get("https://openlibrary.org/search.json", params={
+            "q": query, "limit": limit,
+            "fields": "title,author_name,cover_i,key,first_publish_year",
+        })
+        for d in r.json().get("docs", [])[:limit]:
+            cover_id = d.get("cover_i")
+            key = d.get("key") or ""
+            results.append({
+                "source": "Open Library",
+                "title": _clean(d.get("title")),
+                "author": ", ".join(d.get("author_name") or []),
+                "description": "",
+                "cover_url": (f"https://covers.openlibrary.org/b/id/{cover_id}-L.jpg"
+                              if cover_id else ""),
+                "url": f"https://openlibrary.org{key}" if key else "",
+            })
+    except Exception:
+        pass
+    return results
+
+
+def details_openlibrary(url):
+    out = {}
+    try:
+        r = _get(url.rstrip("/") + ".json")
+        data = r.json()
+        desc = data.get("description")
+        if isinstance(desc, dict):
+            desc = desc.get("value")
+        if desc:
+            out["description"] = _clean(desc)
+    except Exception:
+        pass
+    return out
+
+
 # ---------------------------------------------------------------- API zbiorcze
 
-def search_all(query):
-    results = []
-    results += search_lubimyczytac(query)
-    results += search_upolujebooka(query)
-    results += search_google(query)
+#: Kolejność źródeł zależna od języka interfejsu — najpierw te najbardziej trafne.
+SOURCES_PL = [search_lubimyczytac, search_upolujebooka, search_audible,
+              search_apple_books, search_google, search_openlibrary]
+SOURCES_EN = [search_audible, search_apple_books, search_google,
+              search_openlibrary, search_lubimyczytac, search_upolujebooka]
+
+
+def search_all(query, lang="pl"):
+    """Odpytuje wszystkie źródła równolegle; martwe źródło nie opóźnia reszty."""
+    sources = SOURCES_PL if lang == "pl" else SOURCES_EN
+    with ThreadPoolExecutor(max_workers=len(sources)) as pool:
+        futures = [pool.submit(fn, query) for fn in sources]
+        results = []
+        for f in futures:
+            try:
+                results += f.result()
+            except Exception:
+                pass
     return results
 
 
 def fetch_details(result):
     """Uzupełnia wybrany wynik o opis/okładkę ze strony szczegółów."""
-    if result["source"] == "lubimyczytac.pl" and result.get("url"):
-        result.update({k: v for k, v in details_lubimyczytac(result["url"]).items() if v})
-    elif result["source"] == "upolujebooka.pl" and result.get("url"):
-        result.update({k: v for k, v in details_upolujebooka(result["url"]).items() if v})
+    url = result.get("url")
+    if not url:
+        return result
+    if result["source"] == "lubimyczytac.pl":
+        result.update({k: v for k, v in details_lubimyczytac(url).items() if v})
+    elif result["source"] == "upolujebooka.pl":
+        result.update({k: v for k, v in details_upolujebooka(url).items() if v})
+    elif result["source"] == "Open Library":
+        result.update({k: v for k, v in details_openlibrary(url).items() if v})
+    # Audible / Apple Books / Google Books zwracają pełny opis już przy wyszukiwaniu
     return result
 
 

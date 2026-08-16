@@ -6,13 +6,18 @@ trzeba instalować).
 
 ## Funkcje
 
+- **Język polski i angielski** — Ustawienia → Język (przy pierwszym uruchomieniu
+  wykrywany z systemu).
+- **Motyw jasny, ciemny i systemowy** — Ustawienia → Motyw.
 - **Biblioteka** — audiobooki jako katalogi (wiele plików = rozdziały) i pojedyncze pliki.
 - **Dodawanie**: jeden katalog, wiele katalogów naraz (wskazujesz katalog nadrzędny —
   każdy podkatalog staje się osobnym audiobookiem), pojedyncze pliki (można zaznaczyć kilka).
 - **Zapamiętywanie pozycji** — każdy audiobook wznawia się tam, gdzie skończyłeś
   (pozycja zapisywana co 5 sekund, przy pauzie i przy zamknięciu programu).
-- **Metadane z internetu** — prawy klik → „Pobierz metadane": szuka w
-  lubimyczytac.pl, upolujebooka.pl i Google Books; pobiera tytuł, autora, opis i okładkę.
+- **Metadane z internetu** — prawy klik → „Pobierz metadane": szuka równolegle
+  w serwisach polskich (lubimyczytac.pl, upolujebooka.pl) i zagranicznych
+  (Audible, Apple Books, Google Books, Open Library); pobiera tytuł, autora,
+  opis i okładkę. Kolejność źródeł zależy od języka interfejsu.
 - **Sortowanie**: ostatnio słuchane / tytuł / autor / ostatnio dodane + wyszukiwarka.
 - **Czyszczenie**: całej biblioteki (przycisk na pasku) lub pojedynczego audiobooka
   (prawy klik → „Usuń z biblioteki"). Pliki audio na dysku nigdy nie są kasowane.
@@ -30,14 +35,17 @@ Usunięcie tego katalogu = całkowity reset programu.
 ## Kod źródłowy i przebudowa
 
 - `src\main.py` — interfejs i odtwarzacz (PyQt6)
+- `src\i18n.py` — tłumaczenia PL/EN
+- `src\theme.py` — motyw jasny/ciemny
 - `src\library.py` — model biblioteki i zapis JSON
-- `src\metadata.py` — pobieranie metadanych (scrapery + Google Books API)
+- `src\metadata.py` — pobieranie metadanych (serwisy PL + zagraniczne API)
+- `msix\` — manifest i grafiki pakietu Microsoft Store
 
 ### Windows (środowisko w `.venvq`)
 
 ```powershell
 .venvq\Scripts\pyinstaller.exe --noconfirm --onefile --windowed `
-  --name AudiobookPlayer --icon src\icon.ico src\main.py
+  --name AudiobookPlayer --icon src\icon.ico --add-data "src\icon.ico;." src\main.py
 ```
 
 ### Linux
@@ -92,12 +100,33 @@ to pierwsze miejsce do sprawdzenia.
 Skrypt Inno Setup: `installer.iss`. Budowanie:
 
 ```powershell
-& "C:\Program Files\Inno Setup 7\ISCC.exe" installer.iss
+.\build_installer.ps1
 ```
 
 Wynik: `installer_out\AudiobookPlayer-Setup-<wersja>.exe`. Instalator nie wymaga
 uprawnień administratora (instaluje dla bieżącego użytkownika), a przy odinstalowaniu
 zostawia bibliotekę użytkownika w `%APPDATA%\AudiobookPlayer`.
+
+Wymaga Inno Setup: `winget install --id JRSoftware.InnoSetup.7`.
+
+## Pakiet MSIX (Microsoft Store)
+
+```powershell
+.\build_msix.ps1                # albo: .\build_msix.ps1 -Version 1.2.0
+```
+
+Wynik: `msix_out\AudiobookPlayer-<wersja>.msix` — **niepodpisany**, bo pakiet
+podpisuje sam Store przy publikacji w Partner Center. Skrypt buduje aplikację
+w trybie katalogowym (szybszy start niż onefile), generuje kafelki z `msix\Assets`
+i pakuje całość przez `makeappx.exe` z Windows SDK.
+
+Tożsamość pakietu (`msix\AppxManifest.xml`) musi zgadzać się z rezerwacją w Partner Center:
+
+| Pole | Wartość |
+|---|---|
+| Package/Identity/Name | `MarekZettel-zetmar.PlayerAudiobook` |
+| Package/Identity/Publisher | `CN=15A53D32-C868-48EE-B700-5DBB5449CA1B` |
+| Package/Properties/PublisherDisplayName | `Marek Zettel - zetmar` |
 
 ## Licencja
 

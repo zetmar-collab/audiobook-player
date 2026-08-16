@@ -2,8 +2,9 @@
 .venv*/
 build/
 dist/
-installer_out/
 __pycache__/
 *.pyc
+installer_out/
+msix_out/
 *.AppImage
 packaging/linux/tools/

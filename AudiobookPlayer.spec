@@ -5,7 +5,8 @@ a = Analysis(
     ['src/main.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    # ikona dołączana jako zasób — main.py::app_icon szuka .ico, potem .png
+    datas=[('src/icon.ico', '.')] if sys.platform == 'win32' else [('src/icon.png', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
