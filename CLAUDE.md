@@ -24,12 +24,17 @@ Odtwarzacz audiobooków (PyQt6), Windows + Linux. Kod w `src\`, gotowy exe/binar
 ### Windows
 
 ```powershell
-# exe przenośny (onefile)
+# exe przenośny (onefile) — --specpath build OBOWIĄZKOWO, patrz uwaga niżej
 .venvq\Scripts\pyinstaller.exe --noconfirm --onefile --windowed `
-  --name AudiobookPlayer --icon src\icon.ico --add-data "src\icon.ico;." src\main.py
+  --name AudiobookPlayer --icon src\icon.ico --add-data "src\icon.ico;." `
+  --specpath build src\main.py
 .\build_installer.ps1     # -> installer_out\   (sam znajduje ISCC.exe)
 .\build_msix.ps1          # -> msix_out\        (pakiet do MS Store)
 ```
+
+**Zawsze dodawać `--specpath build`.** Bez tego PyInstaller nadpisuje
+`AudiobookPlayer.spec` w katalogu głównym wygenerowaną wersją windowsową
+i kasuje logikę `sys.platform` potrzebną do budowania na Linuksie.
 
 Wersje: `#define MyAppVersion` w `installer.iss`, `Identity Version` w
 `msix\AppxManifest.xml` (czterocząstkowa, np. `1.1.0.0`), `APP_VERSION` w `src\main.py`.

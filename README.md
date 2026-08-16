@@ -45,8 +45,12 @@ Usunięcie tego katalogu = całkowity reset programu.
 
 ```powershell
 .venvq\Scripts\pyinstaller.exe --noconfirm --onefile --windowed `
-  --name AudiobookPlayer --icon src\icon.ico --add-data "src\icon.ico;." src\main.py
+  --name AudiobookPlayer --icon src\icon.ico --add-data "src\icon.ico;." `
+  --specpath build src\main.py
 ```
+
+`--specpath build` jest ważne: bez niego PyInstaller nadpisuje wspólny
+`AudiobookPlayer.spec` wersją windowsową i psuje build linuksowy.
 
 ### Linux
 

@@ -18,10 +18,12 @@ Bez argumentu: zaproponuj wersję (patch +1 względem `MyAppVersion` w `installe
    `installer.iss`, `APP_VERSION = "X.Y.Z"` w `src\main.py` oraz
    `Identity Version="X.Y.Z.0"` w `msix\AppxManifest.xml`.
 
-3. **Build exe** (zawsze przez .venvq):
+3. **Build exe** (zawsze przez .venvq, zawsze z `--specpath build` — inaczej
+   PyInstaller nadpisze wspólny `AudiobookPlayer.spec` i zepsuje build linuksowy):
    ```powershell
    .venvq\Scripts\pyinstaller.exe --noconfirm --clean --onefile --windowed `
-     --name AudiobookPlayer --icon src\icon.ico src\main.py
+     --name AudiobookPlayer --icon src\icon.ico --add-data "src\icon.ico;." `
+     --specpath build src\main.py
    ```
 
 4. **Weryfikacja exe**: uruchom `dist\AudiobookPlayer.exe`, odczekaj ~8 s,
