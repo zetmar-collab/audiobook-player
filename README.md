@@ -124,7 +124,41 @@ podpisuje sam Store przy publikacji w Partner Center. Skrypt buduje aplikację
 w trybie katalogowym (szybszy start niż onefile), generuje kafelki z `msix\Assets`
 i pakuje całość przez `makeappx.exe` z Windows SDK.
 
-Tożsamość pakietu (`msix\AppxManifest.xml`) musi zgadzać się z rezerwacją w Partner Center:
+### Wersja testowa (do wypróbowania na własnym komputerze)
+
+Pakiet wysyłany do Store jest niepodpisany, więc **nie da się go zainstalować lokalnie**.
+Do testów podpisz kopię certyfikatem testowym:
+
+```powershell
+.\sign_msix.ps1 -Install
+```
+
+Skrypt bierze najnowszy pakiet z `msix_out\`, podpisuje **kopię** jako
+`AudiobookPlayer-<wersja>-test-signed.msix` (oryginał dla Store zostaje nietknięty),
+weryfikuje podpis i instaluje aplikację. Potem jest w menu Start jako „Audiobook Player".
+
+Certyfikat musi mieć `Subject` równy `Publisher` z manifestu — skrypt szuka takiego
+w `Cert:\CurrentUser\My`, a gdy go nie ma, tworzy nowy samopodpisany i eksportuje
+część publiczną do `msix_out\AudiobookPlayer-test.cer`. Nowy certyfikat trzeba raz
+oznaczyć jako zaufany (wymaga uprawnień administratora):
+
+```powershell
+Import-Certificate -FilePath .\msix_out\AudiobookPlayer-test.cer -CertStoreLocation Cert:\LocalMachine\TrustedPeople
+```
+
+Odinstalowanie wersji testowej:
+
+```powershell
+Get-AppxPackage *PlayerAudiobook* | Remove-AppxPackage
+```
+
+Wersja z pakietu MSIX korzysta z **tej samej** biblioteki co wersja instalowana
+i przenośna (`%APPDATA%\AudiobookPlayer`) — dane nie są wirtualizowane, więc
+audiobooki i postępy odsłuchu są wspólne.
+
+### Tożsamość pakietu
+
+Tożsamość (`msix\AppxManifest.xml`) musi zgadzać się z rezerwacją w Partner Center:
 
 | Pole | Wartość |
 |---|---|

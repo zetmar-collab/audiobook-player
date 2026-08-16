@@ -113,3 +113,13 @@ Microsoft Store (Partner Center) — tożsamość pakietu, nie zmieniać:
 `Publisher=CN=15A53D32-C868-48EE-B700-5DBB5449CA1B`,
 `PublisherDisplayName=Marek Zettel - zetmar`.
 Pakiet wysyłamy **niepodpisany** — Store podpisuje go sam.
+
+Test lokalny: `.\sign_msix.ps1 -Install` podpisuje **kopię** (`*-test-signed.msix`)
+i instaluje ją; oryginału dla Store nie ruszać. Certyfikat testowy o tym samym
+`Subject` (`CN=15A53D32-…`) jest już w `Cert:\CurrentUser\My` — wspólny z projektem
+„Imieniny i Rocznice" — i jest zaufany w `LocalMachine\TrustedPeople`, więc
+instalacja nie wymaga admina. Nie tworzyć drugiego certyfikatu, jeśli ten działa.
+
+Pakiet MSIX **nie wirtualizuje** `%APPDATA%` — wersja ze Store, instalowana
+i przenośna dzielą tę samą bibliotekę `%APPDATA%\AudiobookPlayer\library.json`
+(sprawdzone: zamknięcie aplikacji z pakietu aktualizuje ten plik).
