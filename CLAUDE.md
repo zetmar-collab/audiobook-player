@@ -114,6 +114,22 @@ Microsoft Store (Partner Center) — tożsamość pakietu, nie zmieniać:
 `PublisherDisplayName=Marek Zettel - zetmar`.
 Pakiet wysyłamy **niepodpisany** — Store podpisuje go sam.
 
+Dane zgłoszenia (Partner Center):
+- Product ID: `9PJRBRTLMP88`
+- **Zarezerwowana nazwa to „Player Audiobook"** — musi być dokładnie w
+  `Package/Properties/DisplayName`, inaczej walidacja odrzuca pakiet.
+  Nazwa widoczna dla użytkownika (`uap:VisualElements/DisplayName`) to
+  „Audiobook Player" i rezerwacji nie podlega.
+- Cena: 0 zł (bazowa waluta PLN), 240 rynków, publiczna, „as soon as possible"
+- Kategoria: Books + reference, dodatkowa: Music
+- Privacy policy URL: `PRIVACY.md` z repo (wymagane — bez tego sekcja
+  Properties nie przejdzie)
+- Zrzuty do sklepu: `msix\store_screenshots\` (1920×1080; Store wymaga min.
+  1366×768, a surowe zrzuty okna mają ok. 1100×780 — dlatego są osadzane
+  na płótnie skryptem, nie skalowane)
+- Wersje językowe opisu: pl-PL i en-US (wynikają z `<Resource Language>`
+  w manifeście — obie trzeba wypełnić, inaczej Store listings zostaje Incomplete)
+
 Test lokalny: `.\sign_msix.ps1 -Install` podpisuje **kopię** (`*-test-signed.msix`)
 i instaluje ją; oryginału dla Store nie ruszać. Certyfikat testowy o tym samym
 `Subject` (`CN=15A53D32-…`) jest już w `Cert:\CurrentUser\My` — wspólny z projektem
