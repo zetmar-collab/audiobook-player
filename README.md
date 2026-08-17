@@ -1,8 +1,15 @@
 # Audiobook Player
 
-Odtwarzacz audiobooków — Windows i Linux. Gotowy program: **`dist\AudiobookPlayer.exe`**
-na Windows / **`dist/AudiobookPlayer`** na Linuksie (pojedynczy plik, niczego nie
-trzeba instalować).
+[![Pobierz z Microsoft Store](https://get.microsoft.com/images/pl%20light.svg)](https://apps.microsoft.com/store/detail/9PJRBRTLMP88?cid=DevShareMCLPCS)
+
+Odtwarzacz audiobooków — Windows i Linux.
+
+**Windows:** najprościej [zainstalować z Microsoft Store](https://apps.microsoft.com/store/detail/9PJRBRTLMP88?cid=DevShareMCLPCS)
+(darmowa, aktualizacje automatyczne). Alternatywnie instalator lub wersja
+przenośna z [sekcji Releases](https://github.com/zetmar-collab/audiobook-player/releases).
+
+**Linux:** binarka lub AppImage z [sekcji Releases](https://github.com/zetmar-collab/audiobook-player/releases),
+albo budowanie ze źródeł (instrukcja niżej).
 
 ## Funkcje
 

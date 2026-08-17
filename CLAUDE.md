@@ -115,6 +115,9 @@ Microsoft Store (Partner Center) — tożsamość pakietu, nie zmieniać:
 Pakiet wysyłamy **niepodpisany** — Store podpisuje go sam.
 
 Dane zgłoszenia (Partner Center):
+- **Opublikowana w Store od 17 sierpnia 2026** (wersja 1.2.0):
+  https://apps.microsoft.com/store/detail/9PJRBRTLMP88
+  Kolejne wersje = nowe submission z podbitą `Identity Version` w manifeście.
 - Product ID: `9PJRBRTLMP88`
 - **Zarezerwowana nazwa to „Player Audiobook"** — musi być dokładnie w
   `Package/Properties/DisplayName`, inaczej walidacja odrzuca pakiet.
