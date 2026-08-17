@@ -12,7 +12,10 @@
     ProcessorArchitecture="x64" />
 
   <Properties>
-    <DisplayName>Audiobook Player</DisplayName>
+    <!-- MUSI być dokładnie nazwą zarezerwowaną w Partner Center, inaczej
+         walidacja pakietu odrzuca zgłoszenie. Nazwa widoczna dla użytkownika
+         (kafelek, menu Start) ustawiana jest niżej w uap:VisualElements. -->
+    <DisplayName>Player Audiobook</DisplayName>
     <PublisherDisplayName>Marek Zettel - zetmar</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
