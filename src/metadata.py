@@ -336,6 +336,34 @@ def fetch_details(result):
     return result
 
 
+def fill_missing_covers(results, max_workers=4):
+    """Dociąga adres okładki dla wyników, które nie dostały go przy wyszukiwaniu
+    (np. upolujebooka.pl — okładka jest tylko na stronie oferty, nie na liście
+    wyników). Mutuje słowniki w miejscu i zwraca tę samą listę."""
+    need = [r for r in results if not r.get("cover_url") and r.get("url")]
+    if not need:
+        return results
+
+    def fetch_one(r):
+        try:
+            if r["source"] == "upolujebooka.pl":
+                d = details_upolujebooka(r["url"])
+            elif r["source"] == "lubimyczytac.pl":
+                d = details_lubimyczytac(r["url"])
+            elif r["source"] == "Open Library":
+                d = details_openlibrary(r["url"])
+            else:
+                d = {}
+            if d.get("cover_url"):
+                r["cover_url"] = d["cover_url"]
+        except Exception:
+            pass
+
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        list(pool.map(fetch_one, need))
+    return results
+
+
 def download_cover(url, dest_path):
     try:
         r = _get(url)

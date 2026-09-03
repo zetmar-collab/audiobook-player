@@ -19,10 +19,13 @@ Bez argumentu: zaproponuj wersję (patch +1 względem `MyAppVersion` w `installe
    `Identity Version="X.Y.Z.0"` w `msix\AppxManifest.xml`.
 
 3. **Build exe** (zawsze przez .venvq, zawsze z `--specpath build` — inaczej
-   PyInstaller nadpisze wspólny `AudiobookPlayer.spec` i zepsuje build linuksowy):
+   PyInstaller nadpisze wspólny `AudiobookPlayer.spec` i zepsuje build linuksowy;
+   `--icon`/`--add-data` MUSZĄ być bezwzględne — PyInstaller 6.21 z `--specpath`
+   rozwiązuje ścieżki względne względem `build\`, nie katalogu roboczego):
    ```powershell
+   $icon = (Resolve-Path src\icon.ico).Path
    .venvq\Scripts\pyinstaller.exe --noconfirm --clean --onefile --windowed `
-     --name AudiobookPlayer --icon src\icon.ico --add-data "src\icon.ico;." `
+     --name AudiobookPlayer --icon "$icon" --add-data "$icon;." `
      --specpath build src\main.py
    ```
 

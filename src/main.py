@@ -88,6 +88,30 @@ class ApplyWorker(QThread):
         self.done.emit(meta.fetch_details(self.result))
 
 
+class CoverSearchWorker(QThread):
+    done = Signal(list)
+
+    def __init__(self, query, parent=None):
+        super().__init__(parent)
+        self.query = query
+
+    def run(self):
+        results = meta.search_all(self.query, lang=i18n.language())
+        self.done.emit(meta.fill_missing_covers(results))
+
+
+class CoverDownloadWorker(QThread):
+    done = Signal(bool)
+
+    def __init__(self, url, dest, parent=None):
+        super().__init__(parent)
+        self.url = url
+        self.dest = dest
+
+    def run(self):
+        self.done.emit(meta.download_cover(self.url, self.dest))
+
+
 # ------------------------------------------------------------ dialog metadanych
 
 class MetadataDialog(QDialog):
@@ -195,6 +219,159 @@ class MetadataDialog(QDialog):
     def on_details(self, result):
         self.chosen = result
         self.accept()
+
+
+# ------------------------------------------------------------ dialog okładki
+
+class CoverDialog(QDialog):
+    """Wyszukiwanie okładek (wizualnie, z miniaturkami) i wybór jednej z nich,
+    albo wskazanie własnego obrazu z dysku."""
+
+    def __init__(self, book, parent=None):
+        super().__init__(parent)
+        self.book = book
+        self.results = []
+        self.result_path = None  # ścieżka pobranej/skopiowanej okładki po zaakceptowaniu
+        self.setWindowTitle(tr("cover_dialog_title", title=book["title"]))
+        self.resize(760, 520)
+
+        layout = QVBoxLayout(self)
+        row = QHBoxLayout()
+        self.query_edit = QLineEdit(f"{book['author']} {book['title']}".strip())
+        self.search_btn = QPushButton(tr("meta_search"))
+        self.search_btn.clicked.connect(self.do_search)
+        row.addWidget(self.query_edit, 1)
+        row.addWidget(self.search_btn)
+        layout.addLayout(row)
+
+        split = QSplitter()
+        self.list = QListWidget()
+        self.list.setIconSize(QSize(60, 84))
+        self.list.currentRowChanged.connect(self.show_preview)
+        split.addWidget(self.list)
+
+        right = QWidget()
+        rlay = QVBoxLayout(right)
+        self.preview_cover = QLabel(alignment=Qt.AlignmentFlag.AlignCenter)
+        self.preview_cover.setFixedHeight(220)
+        self.preview_text = QLabel(alignment=Qt.AlignmentFlag.AlignCenter, wordWrap=True)
+        self.preview_text.setStyleSheet(f"color: {themes.muted_color()};")
+        rlay.addWidget(self.preview_cover)
+        rlay.addWidget(self.preview_text)
+        rlay.addStretch(1)
+        file_btn = QPushButton(tr("cover_from_file"))
+        file_btn.clicked.connect(self.choose_file)
+        rlay.addWidget(file_btn)
+        split.addWidget(right)
+        split.setSizes([420, 320])
+        layout.addWidget(split, 1)
+
+        self.status = QLabel("")
+        layout.addWidget(self.status)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok
+                                   | QDialogButtonBox.StandardButton.Cancel)
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(tr("cover_apply"))
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(tr("meta_cancel"))
+        self.ok_btn = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        buttons.accepted.connect(self.accept_choice)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+        self.query_edit.returnPressed.connect(self.do_search)
+        self.do_search()
+
+    def do_search(self):
+        q = self.query_edit.text().strip()
+        if not q:
+            return
+        self.status.setText(tr("cover_searching"))
+        self.search_btn.setEnabled(False)
+        self.list.clear()
+        self.preview_cover.setPixmap(default_cover(160))
+        self.preview_text.setText("")
+        self.worker = CoverSearchWorker(q, self)
+        self.worker.done.connect(self.on_results)
+        self.worker.start()
+
+    def on_results(self, results):
+        # tylko wyniki, dla których faktycznie mamy adres okładki
+        self.results = [r for r in results if r.get("cover_url")]
+        self.search_btn.setEnabled(True)
+        self.status.setText(tr("cover_found", n=len(self.results)) if self.results
+                            else tr("cover_none"))
+        for r in self.results:
+            author = f" — {r['author']}" if r["author"] else ""
+            item = QListWidgetItem(f"[{r['source']}] {r['title']}{author}")
+            item.setIcon(QIcon(default_cover(64)))
+            self.list.addItem(item)
+        if self.results:
+            self.list.setCurrentRow(0)
+
+    def _load_thumb(self, url, row):
+        """Pobiera miniaturę w tle — do wiersza listy i (jeśli dalej zaznaczony) do podglądu."""
+        def load():
+            import requests as rq
+            try:
+                data = rq.get(url, headers=meta.HEADERS, timeout=10).content
+                pm = QPixmap()
+                if not pm.loadFromData(data):
+                    return
+                item = self.list.item(row)
+                if item:
+                    item.setIcon(QIcon(pm.scaled(60, 84, Qt.AspectRatioMode.KeepAspectRatio,
+                                                 Qt.TransformationMode.SmoothTransformation)))
+                if self.list.currentRow() == row:
+                    self.preview_cover.setPixmap(
+                        pm.scaledToHeight(210, Qt.TransformationMode.SmoothTransformation))
+            except Exception:
+                pass
+        import threading
+        threading.Thread(target=load, daemon=True).start()
+
+    def show_preview(self, row):
+        if row < 0 or row >= len(self.results):
+            return
+        r = self.results[row]
+        self.preview_text.setText(f"{r['title']}\n{r['author']}\n{tr('meta_source')}: {r['source']}")
+        self.preview_cover.setPixmap(default_cover(160))
+        if r.get("cover_url"):
+            self._load_thumb(r["cover_url"], row)
+
+    def choose_file(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, tr("cover_dlg_choose_file"), "",
+            f"{tr('cover_image_files')} (*.jpg *.jpeg *.png *.webp *.bmp)")
+        if not path:
+            return
+        pm = QPixmap(path)
+        if pm.isNull():
+            self.status.setText(tr("cover_file_failed"))
+            return
+        dest = os.path.join(lib.COVERS_DIR, self.book["id"] + ".jpg")
+        pm.save(dest, "JPG")
+        self.result_path = dest
+        self.accept()
+
+    def accept_choice(self):
+        row = self.list.currentRow()
+        if row < 0 or row >= len(self.results):
+            self.reject()
+            return
+        url = self.results[row]["cover_url"]
+        dest = os.path.join(lib.COVERS_DIR, self.book["id"] + ".jpg")
+        self.status.setText(tr("cover_downloading"))
+        self.ok_btn.setEnabled(False)
+        self.dl_worker = CoverDownloadWorker(url, dest, self)
+        self.dl_worker.done.connect(lambda ok: self.on_downloaded(ok, dest))
+        self.dl_worker.start()
+
+    def on_downloaded(self, ok, dest):
+        if ok:
+            self.result_path = dest
+            self.accept()
+        else:
+            self.ok_btn.setEnabled(True)
+            self.status.setText(tr("cover_download_failed"))
 
 
 # ------------------------------------------------------------ element listy
@@ -639,6 +816,7 @@ class MainWindow(QMainWindow):
         menu.addAction(tr("ctx_play_start"), lambda: self.play_book(book, restart=True))
         menu.addSeparator()
         menu.addAction(tr("ctx_metadata"), lambda: self.fetch_metadata(book))
+        menu.addAction(tr("ctx_cover"), lambda: self.fetch_cover(book))
         menu.addAction(tr("ctx_edit"), lambda: self.edit_metadata(book))
         menu.addSeparator()
         if book.get("finished"):
@@ -703,6 +881,22 @@ class MainWindow(QMainWindow):
         self.refresh_list()
         self.show_details()
         self.statusBar().showMessage(tr("meta_updated"), 5000)
+
+    def fetch_cover(self, book):
+        dlg = CoverDialog(book, self)
+        if dlg.exec() != QDialog.DialogCode.Accepted or not dlg.result_path:
+            return
+        old_cover = book.get("cover")
+        book["cover"] = dlg.result_path
+        if old_cover and old_cover != dlg.result_path and os.path.exists(old_cover):
+            try:
+                os.remove(old_cover)
+            except OSError:
+                pass
+        self.library.save()
+        self.refresh_list()
+        self.show_details()
+        self.statusBar().showMessage(tr("cover_updated"), 5000)
 
     # ---------------------------------------------------------------- odtwarzanie
 

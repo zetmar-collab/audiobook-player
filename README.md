@@ -25,6 +25,9 @@ albo budowanie ze źródeł (instrukcja niżej).
   w serwisach polskich (lubimyczytac.pl, upolujebooka.pl) i zagranicznych
   (Audible, Apple Books, Google Books, Open Library); pobiera tytuł, autora,
   opis i okładkę. Kolejność źródeł zależy od języka interfejsu.
+- **Osobny wybór okładki** — prawy klik → „Pobierz okładkę": wizualna wyszukiwarka
+  z miniaturkami z tych samych 6 serwisów (bez zmiany tytułu/autora/opisu),
+  albo wskazanie własnego obrazu z dysku.
 - **Sortowanie**: ostatnio słuchane / tytuł / autor / ostatnio dodane + wyszukiwarka.
 - **Czyszczenie**: całej biblioteki (przycisk na pasku) lub pojedynczego audiobooka
   (prawy klik → „Usuń z biblioteki"). Pliki audio na dysku nigdy nie są kasowane.
@@ -51,13 +54,16 @@ Usunięcie tego katalogu = całkowity reset programu.
 ### Windows (środowisko w `.venvq`)
 
 ```powershell
+$icon = (Resolve-Path src\icon.ico).Path
 .venvq\Scripts\pyinstaller.exe --noconfirm --onefile --windowed `
-  --name AudiobookPlayer --icon src\icon.ico --add-data "src\icon.ico;." `
+  --name AudiobookPlayer --icon "$icon" --add-data "$icon;." `
   --specpath build src\main.py
 ```
 
 `--specpath build` jest ważne: bez niego PyInstaller nadpisuje wspólny
-`AudiobookPlayer.spec` wersją windowsową i psuje build linuksowy.
+`AudiobookPlayer.spec` wersją windowsową i psuje build linuksowy. `--icon`
+i `--add-data` muszą być ścieżkami bezwzględnymi (PyInstaller 6.21 rozwiązuje
+ścieżki względne względem `build\`, nie katalogu roboczego).
 
 ### Linux
 

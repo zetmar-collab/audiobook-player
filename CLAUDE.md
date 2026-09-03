@@ -25,8 +25,9 @@ Odtwarzacz audiobooków (PyQt6), Windows + Linux. Kod w `src\`, gotowy exe/binar
 
 ```powershell
 # exe przenośny (onefile) — --specpath build OBOWIĄZKOWO, patrz uwaga niżej
+$icon = (Resolve-Path src\icon.ico).Path
 .venvq\Scripts\pyinstaller.exe --noconfirm --onefile --windowed `
-  --name AudiobookPlayer --icon src\icon.ico --add-data "src\icon.ico;." `
+  --name AudiobookPlayer --icon "$icon" --add-data "$icon;." `
   --specpath build src\main.py
 .\build_installer.ps1     # -> installer_out\   (sam znajduje ISCC.exe)
 .\build_msix.ps1          # -> msix_out\        (pakiet do MS Store)
@@ -35,6 +36,11 @@ Odtwarzacz audiobooków (PyQt6), Windows + Linux. Kod w `src\`, gotowy exe/binar
 **Zawsze dodawać `--specpath build`.** Bez tego PyInstaller nadpisuje
 `AudiobookPlayer.spec` w katalogu głównym wygenerowaną wersją windowsową
 i kasuje logikę `sys.platform` potrzebną do budowania na Linuksie.
+
+**`--icon` i `--add-data` muszą być ścieżkami bezwzględnymi.** PyInstaller
+6.21 (razem z `--specpath build`) rozwiązuje ścieżki względne względem
+katalogu spec (`build\`), nie katalogu roboczego — `src\icon.ico` kończy się
+błędem „file not found" mimo że plik istnieje. `$(Resolve-Path ...)` naprawia to.
 
 Wersje: `#define MyAppVersion` w `installer.iss`, `Identity Version` w
 `msix\AppxManifest.xml` (czterocząstkowa, np. `1.1.0.0`), `APP_VERSION` w `src\main.py`.
@@ -91,6 +97,11 @@ Wymaga jednorazowo pobranego `appimagetool-x86_64.AppImage` w
   - zagraniczne: Audible (`api.audible.com/1.0/catalog/products` — najlepsze dla
     audiobooków), Apple Books (iTunes Search API), Google Books (bywa 429),
     Open Library (z sieci autora nieosiągalne — dlatego krótki timeout połączenia)
+  - `fill_missing_covers()` dociąga adres okładki dla wyników bez `cover_url`
+    w wyszukiwaniu (upolujebooka.pl — okładka jest tylko na stronie oferty)
+- `CoverDialog` (w `main.py`) — osobny, wizualny wybór okładki (miniaturki
+  z tych samych 6 źródeł + opcja wskazania pliku z dysku), menu kontekstowe
+  „Pobierz okładkę…"; nie zmienia tytułu/autora/opisu, tylko `book["cover"]`
 - `msix\` — manifest i generator kafelków dla MS Store
 
 ## Testowanie
