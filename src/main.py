@@ -25,7 +25,7 @@ import metadata as meta
 import theme as themes
 from i18n import tr
 
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.3.0"
 
 #: Minuty dla wyłącznika czasowego; None = wyłączony.
 SLEEP_OPTIONS = [None, 15, 30, 45, 60, 90]
