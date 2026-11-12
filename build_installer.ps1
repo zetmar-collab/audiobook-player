@@ -26,8 +26,13 @@ if (-not $iscc) {
     throw "Nie znaleziono ISCC.exe. Zainstaluj Inno Setup: winget install --id JRSoftware.InnoSetup.7"
 }
 
-Write-Host "Używam: $iscc"
-& $iscc (Join-Path $root "installer.iss")
+# Wersja pochodzi z src\appinfo.py (jedno źródło prawdy), nie z installer.iss.
+$py = Join-Path $root ".venvq\Scripts\python.exe"
+$version = (& $py -c "import sys; sys.path.insert(0, r'$root\src'); import appinfo; print(appinfo.APP_VERSION)").Trim()
+if (-not $version) { throw "Nie udało się odczytać wersji z src\appinfo.py" }
+
+Write-Host "Używam: $iscc (wersja $version)"
+& $iscc "/DMyAppVersion=$version" (Join-Path $root "installer.iss")
 if ($LASTEXITCODE -ne 0) { throw "Kompilacja instalatora nie powiodła się" }
 
 Get-ChildItem (Join-Path $root "installer_out\*.exe") |

@@ -4,7 +4,6 @@
 poprawki arkusza stylów. Tryb "system" czyta ustawienie Windows
 (Personalizacja → Kolory → Tryb aplikacji).
 """
-from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QPalette
 
 THEMES = ["light", "dark", "system"]

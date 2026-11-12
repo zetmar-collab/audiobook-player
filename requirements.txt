@@ -1,4 +1,17 @@
-PyQt6
-requests
-beautifulsoup4
-mutagen
+# Zależności uruchomieniowe — wersje przypięte, bo ten projekt już dwukrotnie
+# zepsuła zmiana wersji (błąd odtwarzania w PySide6, ścieżki w PyInstallerze).
+# Aktualizuj świadomie: podbij wersję, uruchom `pytest` i smoke test aplikacji.
+#
+# UWAGA: QtMultimedia jest w wheelu PyQt6 — pakiet "PyQt6-Multimedia" nie istnieje.
+PyQt6==6.11.0
+PyQt6-Qt6==6.11.1
+PyQt6_sip==13.11.1
+requests==2.34.2
+urllib3==2.7.0
+certifi==2026.6.17
+charset-normalizer==3.4.9
+idna==3.18
+beautifulsoup4==4.15.0
+soupsieve==2.8.4
+mutagen==1.48.1
+typing_extensions==4.16.0

@@ -1,0 +1,7 @@
+# Narzędzia do budowania i testów (poza zależnościami uruchomieniowymi).
+-r requirements.txt
+pyinstaller==6.21.0
+pyinstaller-hooks-contrib==2026.6
+pytest==9.2.0
+pytest-qt==4.5.0
+pyflakes==4.1.0

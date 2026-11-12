@@ -1,6 +1,6 @@
 # Audiobook Player — zasady projektu
 
-Odtwarzacz audiobooków (PyQt6), Windows + Linux. Kod w `src\`, gotowy exe/binarka w `dist\`.
+Odtwarzacz audiobooków (PyQt6), Windows + Linux. Kod w `src\`, testy w `tests\`.
 
 ## Krytyczne — nie łamać
 
@@ -8,116 +8,109 @@ Odtwarzacz audiobooków (PyQt6), Windows + Linux. Kod w `src\`, gotowy exe/binar
   maszynie przerywa odtwarzanie po ~0,5 s (pozycja wraca do 0, oba backendy
   ffmpeg/windows). Nie "migrować" ani nie "ujednolicać" do PySide6.
   Konsekwencja PyQt6: pełne ścieżki enumów (`Qt.AlignmentFlag.AlignCenter`),
-  `pyqtSignal` zamiast `Signal`, licencja GPL-3.0.
-- **Windows: budować wyłącznie przez `.venvq`** (`.venvq\Scripts\python.exe`,
-  `.venvq\Scripts\pyinstaller.exe`). Python ze Sklepu Windows ma za długie ścieżki
-  site-packages — `pip install PySide6/PyQt6` poza venv kończy się błędem OSError.
-  Na Linuksie ten problem nie występuje — zwykły `venv` wystarczy.
-- **Ścieżka danych jest platformowa** (`src\library.py::_app_dir`): Windows →
-  `%APPDATA%\AudiobookPlayer`, Linux/macOS → `$XDG_DATA_HOME/AudiobookPlayer`
-  (domyślnie `~/.local/share/AudiobookPlayer`). Nie wracać do sztywnego `%APPDATA%`.
-- Otwieranie lokalizacji na dysku idzie przez `QDesktopServices.openUrl` (Qt,
-  działa na obu platformach) — nie `os.startfile` (Windows-only).
+  `pyqtSignal`, licencja GPL-3.0.
+- **Windows: budować wyłącznie przez `.venvq`** (`.venvq\Scripts\python.exe`).
+  Python ze Sklepu Windows ma za długie ścieżki site-packages — `pip install PyQt6`
+  poza venv kończy się błędem OSError. Na Linuksie zwykły `venv` wystarczy.
+- **Wersja tylko w `src\appinfo.py`.** Skrypty budowania, instalator (`/DMyAppVersion`)
+  i manifest MSIX (`Identity Version`) czytają ją stamtąd. Nie edytować wersji ręcznie
+  w `installer.iss`/manifeście.
+- **Biblioteka nigdy nie jest nadpisywana pustą** (`library.py`): odczyt, który się nie
+  udał, zostawia plik w spokoju (`.corrupt-<czas>` lub `save_disabled`). Nie wracać do
+  `except Exception: books = []`.
+- **Ścieżka danych jest platformowa** (`src\paths.py`): Windows → `%APPDATA%\AudiobookPlayer`,
+  Linux/macOS → `$XDG_DATA_HOME/AudiobookPlayer`. Okładki są w `covers\` — tylko pliki z tego
+  katalogu wolno kasować (`Library.remove`).
+- **Wątki robocze nie dotykają widgetów.** Zwracają dane sygnałem (`QImage`, nie `QPixmap`);
+  każdy wynik wyszukiwania niesie numer generacji (`SearchDialogBase`) — odpowiedź ze
+  starszej generacji jest ignorowana. Nowe wątki startować przez `workers.start()`.
+- **Każdy napis w UI przez `tr()`** (`i18n.py` to tabela par PL/EN; `tests\test_i18n_covers.py`
+  pilnuje kluczy i znaczników `{...}`). Dane z metadanych wyświetlać w `plain_label`
+  (`widgets.py`), nie w `QLabel` z AutoText.
+- Nieobsłużony wyjątek w slocie PyQt6 **zabija proces** (`0xC0000409`) — dlatego `applog.install_excepthook()`
+  w `main()`. Nie usuwać.
 
-## Budowanie
+## Pułapki PyQt6 (każda już raz kosztowała błąd)
 
-### Windows
+- `QPixmapCache.find(klucz)` **zwraca** pixmapę (nie ma parametru wyjściowego jak w C++).
+- `QBuffer(QByteArray())` — tymczasowy `QByteArray` zostaje zwolniony → access violation. Trzymać w zmiennej.
+- `Regex.Replace(tekst, wzorzec, zamiennik, 1)` w PowerShellu: `1` to `RegexOptions`, nie limit zamian.
+  Używać instancji `Regex` i `.Replace(tekst, zamiennik, 1)` (patrz `build_msix.ps1`).
+- `QMenu.exec()` blokuje w trybie offscreen — w testach podstawiać.
+
+## Budowanie (Windows)
 
 ```powershell
-# exe przenośny (onefile) — --specpath build OBOWIĄZKOWO, patrz uwaga niżej
-$icon = (Resolve-Path src\icon.ico).Path
-.venvq\Scripts\pyinstaller.exe --noconfirm --onefile --windowed `
-  --name AudiobookPlayer --icon "$icon" --add-data "$icon;." `
-  --specpath build src\main.py
-.\build_installer.ps1     # -> installer_out\   (sam znajduje ISCC.exe)
-.\build_msix.ps1          # -> msix_out\        (pakiet do MS Store)
+.\build_exe.ps1               # dist\AudiobookPlayer.exe + dist\AudiobookPlayer-portable-<wersja>.zip (onedir)
+.\build_installer.ps1         # installer_out\   (sam znajduje ISCC.exe)
+.\build_msix.ps1              # msix_out\        (pakiet do MS Store, niepodpisany)
 ```
 
-**Zawsze dodawać `--specpath build`.** Bez tego PyInstaller nadpisuje
-`AudiobookPlayer.spec` w katalogu głównym wygenerowaną wersją windowsową
-i kasuje logikę `sys.platform` potrzebną do budowania na Linuksie.
-
-**`--icon` i `--add-data` muszą być ścieżkami bezwzględnymi.** PyInstaller
-6.21 (razem z `--specpath build`) rozwiązuje ścieżki względne względem
-katalogu spec (`build\`), nie katalogu roboczego — `src\icon.ico` kończy się
-błędem „file not found" mimo że plik istnieje. `$(Resolve-Path ...)` naprawia to.
-
-Wersje: `#define MyAppVersion` w `installer.iss`, `Identity Version` w
-`msix\AppxManifest.xml` (czterocząstkowa, np. `1.1.0.0`), `APP_VERSION` w `src\main.py`.
-
-**Nie wpisywać ścieżki do ISCC.exe na sztywno** — Inno Setup instaluje się raz
-w `Program Files`, raz w `%LOCALAPPDATA%\Programs`. Używać `build_installer.ps1`.
-
-Uwaga: pakiet `PyQt6-Multimedia` **nie istnieje** na PyPI — `QtMultimedia`
-jest już w wheelu `PyQt6` (razem z `PyQt6-Qt6`). Nie dodawać go do
-`requirements.txt`, `pip` i tak zwróci błąd "No matching distribution".
+- `build_exe.ps1` używa `--specpath build` — bez tego PyInstaller nadpisuje `AudiobookPlayer.spec`
+  w katalogu głównym wersją windowsową i kasuje logikę `sys.platform` dla Linuksa.
+- `--icon`/`--add-data` muszą być **bezwzględne** (PyInstaller 6.21 + `--specpath` rozwiązuje
+  względne względem `build\`).
+- Nie wpisywać ścieżki do ISCC.exe na sztywno (raz `Program Files`, raz `%LOCALAPPDATA%\Programs`).
+- `upx=False` w spec (UPX zwiększa fałszywe alarmy antywirusów). Do exe dołączane: ikona,
+  `LICENSE`, `THIRD_PARTY_NOTICES.md` (GPL wymaga licencji w dystrybucji binarnej — także
+  w instalatorze i MSIX).
+- Smoke test zbudowanego exe: `AudiobookPlayer.exe --smoke-test` (kod 0; `ABP_SMOKE_MS` wydłuża
+  okno życia). Zawsze z tymczasowym `APPDATA`, żeby nie dotykać prawdziwej biblioteki.
 
 ### Linux
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt pyinstaller
+.venv/bin/pip install -r requirements-dev.txt
 .venv/bin/pyinstaller --noconfirm AudiobookPlayer.spec   # -> dist/AudiobookPlayer
 packaging/linux/install.sh                               # instalacja lokalna (~/.local)
 ```
 
-`AudiobookPlayer.spec` jest wspólny dla obu platform (wybiera `.ico`/`.png` wg
-`sys.platform`). Integracja z pulpitem: `packaging/linux/audiobookplayer.desktop`
-+ `src/icon.png` (wygenerowany z `icon.ico`). Qt Multimedia na Linuksie może
-wymagać systemowego backendu (GStreamer/ffmpeg) w zależności od dystrybucji —
-jeśli dźwięk się nie odtwarza, to pierwsze miejsce do sprawdzenia.
-
-Wymaga `libxcb-cursor0` systemowo (`sudo apt install libxcb-cursor0`) — bez
-tego pluginu platformy `xcb` okno się nie otworzy na X11/Wayland (typowy brak
-na minimalnych instalacjach; PyInstaller o tym ostrzega przy budowaniu, ale
-i tak nie potrafi tego zapakować — to zależność systemowa, nie pythonowa).
-
-### AppImage
-
-`packaging/linux/build-appimage.sh` pakuje `dist/AudiobookPlayer` do
-`AudiobookPlayer-x86_64.AppImage` (AppDir ręcznie złożony: `AppRun` + ikona +
-`.desktop`, bez `linuxdeploy` — PyInstaller onefile już jest samowystarczalny).
-Wymaga jednorazowo pobranego `appimagetool-x86_64.AppImage` w
-`packaging/linux/tools/` (ignorowane w git — nie commitować binarki narzędzia).
+Wymaga `libxcb-cursor0` systemowo. AppImage: `packaging/linux/build-appimage.sh`
+(wymaga `appimagetool` w `packaging/linux/tools/`, ignorowane w git).
+Zależności są **przypięte** w `requirements.txt` — podbijać świadomie (pytest + smoke test).
+`PyQt6-Multimedia` nie istnieje na PyPI (QtMultimedia jest w wheelu PyQt6).
 
 ## Architektura
 
-- `src\main.py` — całe UI + odtwarzacz (QMediaPlayer)
-- `src\i18n.py` — tłumaczenia PL/EN (`tr("klucz")`); zmiana języka przebudowuje UI
-  przez `MainWindow.rebuild_ui()`, więc **każdy napis w UI musi iść przez `tr()`**
-- `src\theme.py` — motyw jasny/ciemny/systemowy (paleta Fusion + QSS);
-  kolor tekstu pobocznego brać z `theme.muted_color()`, nie wpisywać „gray".
-  Tryb systemowy czyta rejestr Windows; na Linuksie/macOS daje jasny.
-- `src\library.py` — model biblioteki, zapis JSON do katalogu danych zależnego
-  od platformy (patrz `_app_dir()` powyżej).
-  Klucze ustawień: `lang`, `theme`, `speed`, `volume`
-- `src\metadata.py` — źródła metadanych, wszystkie best-effort (błąd → pusta lista),
-  odpytywane **równolegle** (`search_all`), timeout `(connect=5, read=12)`:
-  - PL: lubimyczytac.pl (`div.book-card`), upolujebooka.pl (`/szukaj,{fraza}.html` + JSON-LD)
-  - zagraniczne: Audible (`api.audible.com/1.0/catalog/products` — najlepsze dla
-    audiobooków), Apple Books (iTunes Search API), Google Books (bywa 429),
-    Open Library (z sieci autora nieosiągalne — dlatego krótki timeout połączenia)
-  - `fill_missing_covers()` dociąga adres okładki dla wyników bez `cover_url`
-    w wyszukiwaniu (upolujebooka.pl — okładka jest tylko na stronie oferty)
-- `CoverDialog` (w `main.py`) — osobny, wizualny wybór okładki (miniaturki
-  z tych samych 6 źródeł + opcja wskazania pliku z dysku), menu kontekstowe
-  „Pobierz okładkę…"; nie zmienia tytułu/autora/opisu, tylko `book["cover"]`
-- `msix\` — manifest i generator kafelków dla MS Store
+- `main.py` okno + skróty + drag&drop; `player_ctl.py` sterownik odtwarzania (bez widgetów);
+  `dialogs.py`; `workers.py`; `widgets.py`; `covers.py` (okładki QImage, cache miniatur);
+  `library.py`/`models.py`/`scanner.py`/`tags.py` (dane); `metadata.py` (serwisy);
+  `singleinstance.py`; `winmedia.py` (globalne klawisze multimedialne, RegisterHotKey);
+  `applog.py`; `theme.py`; `i18n.py`; `paths.py`; `appinfo.py`.
+- `library.json`: `schema` + `books` + `settings`. Pola książki mają wartości domyślne
+  (`models.BOOK_DEFAULTS`) — dodanie pola nie wymaga migracji.
+- Źródła metadanych (`metadata.py`), wszystkie równolegle, twardy limit 25 s, cache 10 min, limit
+  tempa na host, **uczciwy User-Agent** (sprawdzone: serwisy go akceptują):
+  lubimyczytac.pl (`div.book-card`), upolujebooka.pl (`/szukaj,{fraza}.html` + JSON-LD), Audible,
+  Apple Books (iTunes Search), Google Books (**bez `langRestrict`**, opcjonalny klucz API; bez klucza
+  bywa 429), Open Library (z sieci autora bywa nieosiągalne). `search_all` zwraca `SearchOutcome`
+  z błędami źródeł (kody: rate_limit/http/timeout/offline/bad_response/error).
+- Obrazy z sieci: `fetch_image_bytes` (limit 8 MB, sprawdzenie sygnatury) → `covers.save_cover_bytes`
+  (JPEG ≤1000 px). Nigdy nie zapisywać surowej odpowiedzi serwera.
+- Zakładki, rozdziały (`chapters` z M4B/CHAP), prędkość na książkę (`speed`), statystyki
+  (`listened_ms`, `settings["stats"]`) są polami książki/ustawień.
 
 ## Testowanie
 
-Brak automatycznych testów. Smoke test: uruchomić exe, dodać katalog z audio,
-odtworzyć, zamknąć, otworzyć ponownie — pozycja ma być zapamiętana.
-Uwaga: w sesjach Claude Code odtwarzanie QMediaPlayer może nie postępować mimo
-stanu Playing — testować pozycję z zapasem czasu.
+```powershell
+.venvq\Scripts\python -m pyflakes src tests
+.venvq\Scripts\python -m pytest          # 143 testy, ~30 s, tryb offscreen
+```
+
+- Testy z markerem `audio` (postęp odtwarzania na prawdziwym QMediaPlayer) pomijają się bez
+  urządzenia wyjściowego (`ABP_TEST_NO_AUDIO=1` symuluje CI).
+- Po naprawie błędu napisać test, który bez naprawy **pada** (robiłem testy mutacyjne:
+  celowo psuję kod i sprawdzam, czy testy to wykryją). Nie pisać asercji z `or True`.
+- Dowolny test uruchamiający aplikację: tymczasowy `APPDATA`.
+- CI: `.github/workflows/ci.yml` (testy Windows + Ubuntu; przy tagu `v*` build wydania + smoke test).
 
 ## Publikacja
 
-GitHub: `zetmar-collab/audiobook-player` (przez `gh`).
-Release Windows = exe przenośny + instalator z `installer_out\` + pakiet MSIX
-z `msix_out\`. Release Linux = binarka z `dist/` + AppImage.
-Dane użytkownika w katalogu danych platformy (patrz wyżej) — nigdy nie kasować
-przy aktualizacjach/odinstalowaniu.
+GitHub: `zetmar-collab/audiobook-player` (przez `gh`). Release Windows = exe jednoplikowy +
+**archiwum przenośne zip (onedir, zalecane)** + instalator + pakiet MSIX. Release Linux = binarka + AppImage.
+Skill `/release X.Y.Z` prowadzi cały proces. Dane użytkownika w katalogu danych platformy — nigdy nie
+kasować przy aktualizacjach/odinstalowaniu.
 
 Microsoft Store (Partner Center) — tożsamość pakietu, nie zmieniać:
 `Name=MarekZettel-zetmar.PlayerAudiobook`,
@@ -126,30 +119,24 @@ Microsoft Store (Partner Center) — tożsamość pakietu, nie zmieniać:
 Pakiet wysyłamy **niepodpisany** — Store podpisuje go sam.
 
 Dane zgłoszenia (Partner Center):
-- **Opublikowana w Store od 17 sierpnia 2026** (wersja 1.2.0):
-  https://apps.microsoft.com/store/detail/9PJRBRTLMP88
-  Kolejne wersje = nowe submission z podbitą `Identity Version` w manifeście.
+- **Opublikowana w Store** (od 1.2.0; 1.3.0 przeszła certyfikację):
+  https://apps.microsoft.com/store/detail/9PJRBRTLMP88 — kolejne wersje = „Start update"
+  w Partner Center (sekcje bez zmian zostają „Unchanged"), podmiana pakietu, notatki „What's new"
+  w obu językach (pl-PL, en-US), „Submit for certification".
+- **Plik .msix (~50 MB) trzeba wgrać ręcznie** — narzędzie `file_upload` przeglądarki ma limit 10 MB.
 - Product ID: `9PJRBRTLMP88`
 - **Zarezerwowana nazwa to „Player Audiobook"** — musi być dokładnie w
   `Package/Properties/DisplayName`, inaczej walidacja odrzuca pakiet.
-  Nazwa widoczna dla użytkownika (`uap:VisualElements/DisplayName`) to
-  „Audiobook Player" i rezerwacji nie podlega.
-- Cena: 0 zł (bazowa waluta PLN), 240 rynków, publiczna, „as soon as possible"
-- Kategoria: Books + reference, dodatkowa: Music
-- Privacy policy URL: `PRIVACY.md` z repo (wymagane — bez tego sekcja
-  Properties nie przejdzie)
-- Zrzuty do sklepu: `msix\store_screenshots\` (1920×1080; Store wymaga min.
-  1366×768, a surowe zrzuty okna mają ok. 1100×780 — dlatego są osadzane
-  na płótnie skryptem, nie skalowane)
-- Wersje językowe opisu: pl-PL i en-US (wynikają z `<Resource Language>`
-  w manifeście — obie trzeba wypełnić, inaczej Store listings zostaje Incomplete)
+  Nazwa widoczna dla użytkownika (`uap:VisualElements/DisplayName`) to „Audiobook Player".
+- Cena: 0 zł (PLN), 240 rynków, publiczna. Kategoria: Books + reference, dodatkowa: Music.
+- Privacy policy URL: `PRIVACY.md` z repo (wymagane).
+- Zrzuty do sklepu: `msix\store_screenshots\` (1920×1080; Store wymaga min. 1366×768).
+- Opis w pl-PL i en-US — obie wersje trzeba wypełnić, inaczej Store listings zostaje Incomplete.
 
-Test lokalny: `.\sign_msix.ps1 -Install` podpisuje **kopię** (`*-test-signed.msix`)
-i instaluje ją; oryginału dla Store nie ruszać. Certyfikat testowy o tym samym
-`Subject` (`CN=15A53D32-…`) jest już w `Cert:\CurrentUser\My` — wspólny z projektem
-„Imieniny i Rocznice" — i jest zaufany w `LocalMachine\TrustedPeople`, więc
-instalacja nie wymaga admina. Nie tworzyć drugiego certyfikatu, jeśli ten działa.
+Test lokalny MSIX: `.\sign_msix.ps1 -Install` podpisuje **kopię** (`*-test-signed.msix`)
+i instaluje ją. Certyfikat testowy o tym samym `Subject` (`CN=15A53D32-…`) jest w
+`Cert:\CurrentUser\My` (wspólny z projektem „Imieniny i Rocznice") i zaufany w
+`LocalMachine\TrustedPeople`. Nie tworzyć drugiego.
 
-Pakiet MSIX **nie wirtualizuje** `%APPDATA%` — wersja ze Store, instalowana
-i przenośna dzielą tę samą bibliotekę `%APPDATA%\AudiobookPlayer\library.json`
-(sprawdzone: zamknięcie aplikacji z pakietu aktualizuje ten plik).
+Pakiet MSIX **nie wirtualizuje** `%APPDATA%` — wersja ze Store, instalowana i przenośna
+dzielą `library.json` (dlatego jest blokada jednej instancji).

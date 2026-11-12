@@ -8,3 +8,4 @@ installer_out/
 msix_out/
 *.AppImage
 packaging/linux/tools/
+.pytest_cache/

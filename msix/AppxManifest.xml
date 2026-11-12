@@ -8,7 +8,7 @@
   <Identity
     Name="MarekZettel-zetmar.PlayerAudiobook"
     Publisher="CN=15A53D32-C868-48EE-B700-5DBB5449CA1B"
-    Version="1.3.0.0"
+    Version="1.4.0.0"
     ProcessorArchitecture="x64" />
 
   <Properties>
@@ -47,6 +47,26 @@
           ShortName="Audiobook Player" />
         <uap:SplashScreen Image="Assets\SplashScreen.png" BackgroundColor="#2B6CB0" />
       </uap:VisualElements>
+      <Extensions>
+        <!-- „Otwórz za pomocą" dla plików audio (nie przejmuje domyślnych skojarzeń);
+             aplikacja dostaje ścieżkę pliku jako argument wiersza poleceń. -->
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap:FileTypeAssociation Name="audiobookfiles">
+            <uap:DisplayName>Audiobook Player</uap:DisplayName>
+            <uap:SupportedFileTypes>
+              <uap:FileType>.m4b</uap:FileType>
+              <uap:FileType>.m4a</uap:FileType>
+              <uap:FileType>.mp3</uap:FileType>
+              <uap:FileType>.aac</uap:FileType>
+              <uap:FileType>.flac</uap:FileType>
+              <uap:FileType>.ogg</uap:FileType>
+              <uap:FileType>.opus</uap:FileType>
+              <uap:FileType>.wma</uap:FileType>
+              <uap:FileType>.wav</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap:FileTypeAssociation>
+        </uap:Extension>
+      </Extensions>
     </Application>
   </Applications>
 
