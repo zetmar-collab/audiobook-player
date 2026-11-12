@@ -484,7 +484,14 @@ class MainWindow(QMainWindow):
         dialogs.TextViewDialog(tr("menu_licenses"), text, self).exec()
 
     def _open_folder(self, path):
-        QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+        # ścieżka może pochodzić z importowanej kopii zapasowej — otwieramy tylko
+        # istniejący katalog lokalny (bez UNC/sieci), nigdy plik do uruchomienia
+        if not path or path.startswith(("\\\\", "//")):
+            return
+        if not os.path.isdir(path):
+            path = os.path.dirname(path)
+        if os.path.isdir(path):
+            QDesktopServices.openUrl(QUrl.fromLocalFile(path))
 
     # ---------------------------------------------------------------- lista
 
