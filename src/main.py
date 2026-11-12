@@ -486,8 +486,16 @@ class MainWindow(QMainWindow):
     def _open_folder(self, path):
         # ścieżka może pochodzić z importowanej kopii zapasowej — otwieramy tylko
         # istniejący katalog lokalny (bez UNC/sieci), nigdy plik do uruchomienia
-        if not path or path.startswith(("\\\\", "//")):
+        if not path:
             return
+        if os.name == "nt":
+            # normalizacja przed jakimkolwiek dostępem do dysku; dozwolona tylko litera
+            # dysku ("C:") — odrzuca UNC, \\?\UNC\..., \\.\... i ścieżki względne
+            p = os.path.abspath(path).replace("/", "\\")
+            drive = os.path.splitdrive(p)[0]
+            if p.startswith("\\\\") or not (len(drive) == 2 and drive[1] == ":"):
+                return
+            path = p
         if not os.path.isdir(path):
             path = os.path.dirname(path)
         if os.path.isdir(path):
