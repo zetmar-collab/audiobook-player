@@ -70,9 +70,10 @@ def _throttle(host):
         time.sleep(wait_for)
 
 
-def _get(url, **kw):
+def _get(url, extra_headers=None, **kw):
     _throttle(urlparse(url).netloc)
-    r = requests.get(url, headers=HEADERS, timeout=TIMEOUT, **kw)
+    headers = {**HEADERS, **(extra_headers or {})}
+    r = requests.get(url, headers=headers, timeout=TIMEOUT, **kw)
     r.raise_for_status()
     return r
 
@@ -228,10 +229,12 @@ def search_google(query, limit=6):
     klucz można podać w Ustawieniach lub zmienną GOOGLE_BOOKS_API_KEY. Bez
     ograniczenia języka: tytuły zagraniczne też mają być znajdowane."""
     params = {"q": query, "maxResults": limit, "printType": "books"}
+    headers = {}
     if CONFIG["google_api_key"]:
-        params["key"] = CONFIG["google_api_key"]
+        # w nagłówku, nie w URL — dzięki temu klucz nie trafia do komunikatów błędów ani logów
+        headers["X-Goog-Api-Key"] = CONFIG["google_api_key"]
     results = []
-    r = _get("https://www.googleapis.com/books/v1/volumes", params=params)
+    r = _get("https://www.googleapis.com/books/v1/volumes", params=params, extra_headers=headers)
     for item in r.json().get("items", [])[:limit]:
         v = item.get("volumeInfo", {})
         cover = (v.get("imageLinks") or {}).get("thumbnail", "").replace("http://", "https://")
@@ -397,7 +400,8 @@ def search_all(query, lang="pl", use_cache=True):
             outcome.results += fut.result()
         except Exception as e:
             outcome.errors[name] = error_code(e)
-            log.info("źródło %s: %s", name, e)
+            # bez treści wyjątku: mogłaby zawierać pełny URL zapytania
+            log.info("źródło %s: %s %s", name, type(e).__name__, outcome.errors[name][0])
     if not outcome.errors:                  # nie cache'uj częściowych awarii
         with _cache_lock:
             _cache[key] = (time.monotonic(), list(outcome.results))

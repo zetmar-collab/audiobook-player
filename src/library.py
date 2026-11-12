@@ -13,8 +13,10 @@ Gwarancje bezpieczeństwa danych:
 import json
 import logging
 import os
+import re
 import shutil
 import time
+import uuid
 import zipfile
 
 import paths
@@ -25,6 +27,8 @@ log = logging.getLogger("audiobookplayer")
 AUDIO_EXTS = scanner.AUDIO_EXTS      # dla zgodności z dotychczasowym kodem
 
 SCHEMA_VERSION = 2
+_SAFE_ID = re.compile(r"^[0-9A-Za-z_-]{1,64}$")
+_SAFE_COVER = re.compile(r"^[0-9A-Za-z_-]{1,64}\.jpg$")
 KEEP_DAILY_BACKUPS = 7
 
 # stałe ścieżek zachowane dla zgodności z dotychczasowym kodem i testami
@@ -240,7 +244,10 @@ class Library:
             self.remove(b)
 
     def cover_path(self, book_id):
-        return os.path.join(self.covers_dir, book_id + ".jpg")
+        # id z niezaufanego źródła (np. kopii zapasowej) nie może wyjść poza katalog okładek
+        safe = book_id if _SAFE_ID.match(str(book_id)) else uuid.uuid5(
+            uuid.NAMESPACE_URL, str(book_id)).hex
+        return os.path.join(self.covers_dir, safe + ".jpg")
 
     # ------------------------------------------------------------------ widok
 
@@ -310,8 +317,10 @@ class Library:
                 extracted = set()
                 for name in names:
                     base = os.path.basename(name)
-                    # tylko płaskie pliki covers/<nazwa> — żadnych ścieżek z ".."
-                    if name.startswith("covers/") and base and name == "covers/" + base:
+                    # tylko płaskie pliki covers/<nazwa>.jpg o bezpiecznej nazwie —
+                    # żadnych "..", ukośników ani dysków ("C:x")
+                    if (name.startswith("covers/") and name == "covers/" + base
+                            and _SAFE_COVER.match(base)):
                         with z.open(name) as src, open(
                                 os.path.join(self.covers_dir, base), "wb") as dst:
                             shutil.copyfileobj(src, dst)
@@ -326,6 +335,8 @@ class Library:
             except OSError:
                 pass
         for b in books:
+            if not _SAFE_ID.match(str(b.get("id", ""))):
+                b["id"] = uuid.uuid4().hex
             base = os.path.basename(b.get("cover") or "")
             b["cover"] = os.path.join(self.covers_dir, base) if base in extracted else ""
         self.books = books

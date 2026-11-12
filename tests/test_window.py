@@ -365,8 +365,10 @@ def test_import_of_bad_archive_shows_warning_and_keeps_library(win, library, aud
 
 def test_startup_warns_about_corrupt_library(qtbot, lib_dir, monkeypatch):
     import library as lib
-    open(os.path.join(lib_dir, "library.json"), "w").write("{ucięty")
+    with open(os.path.join(lib_dir, "library.json"), "w", encoding="utf-8") as f:
+        f.write("{ucięty")
     L = lib.Library(lib_dir)
+    L.settings["lang"] = "pl"
     shown = []
     monkeypatch.setattr(QMessageBox, "warning", staticmethod(lambda *a, **k: shown.append(a[2])))
     w = appmod.MainWindow(L)

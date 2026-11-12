@@ -86,6 +86,7 @@ def test_google_has_no_language_restriction_and_uses_key(monkeypatch):
 
     def fake(url, **kw):
         seen.update(kw["params"])
+        seen["header"] = (kw.get("extra_headers") or {}).get("X-Goog-Api-Key")
         return Resp(data={"items": [{"volumeInfo": {
             "title": "Dune", "authors": ["Frank Herbert"],
             "imageLinks": {"thumbnail": "http://books.google/x.jpg"}}}]})
@@ -96,7 +97,8 @@ def test_google_has_no_language_restriction_and_uses_key(monkeypatch):
     finally:
         meta.configure(google_api_key="")
     assert "langRestrict" not in seen            # poprzednio: sztywno "pl"
-    assert seen["key"] == "SEKRET"
+    assert seen["header"] == "SEKRET"            # klucz w nagłówku...
+    assert "key" not in seen                     # ...nie w URL (nie trafi do logów)
     assert r[0]["cover_url"] == "https://books.google/x.jpg"   # http -> https
 
 

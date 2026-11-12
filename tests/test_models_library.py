@@ -287,3 +287,25 @@ def test_import_rejects_garbage_and_path_traversal(library, tmp_path):
 def test_guess_title_author():
     assert scanner.guess_title_author("Jerzy Pilch - Żółte światło [PL]") == ("Żółte światło", "Jerzy Pilch")
     assert scanner.guess_title_author("Ksiazka_bez_autora (audiobook)") == ("Ksiazka bez autora", "")
+
+
+def test_backup_import_rejects_unsafe_ids_and_cover_names(tmp_path):
+    """Kopia zapasowa z niezaufanego źródła nie może pisać poza katalogiem okładek."""
+    import json
+    import zipfile
+    import library as lib
+    L = lib.Library(str(tmp_path / "data"))
+    evil = {"schema": 2, "settings": {}, "books": [
+        {"id": r"..\..\evil", "title": "A", "files": [], "cover": "x.jpg"},
+        {"id": "ok1", "title": "B", "files": [], "cover": "C:evil.jpg"}]}
+    zp = tmp_path / "bad.zip"
+    with zipfile.ZipFile(zp, "w") as z:
+        z.writestr("library.json", json.dumps(evil))
+        z.writestr("covers/C:evil.jpg", b"x")
+        z.writestr(r"covers/..\up.jpg", b"x")
+        z.writestr("covers/good-1.jpg", b"x")
+    assert L.import_backup(str(zp)) == 2
+    assert all(lib._SAFE_ID.match(b["id"]) for b in L.books)
+    assert os.listdir(L.covers_dir) == ["good-1.jpg"]
+    assert not (tmp_path / "up.jpg").exists()
+    assert os.path.dirname(L.cover_path(r"..\..\x")) == L.covers_dir

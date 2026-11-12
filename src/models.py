@@ -2,6 +2,7 @@
 import copy
 import time
 import unicodedata
+import re
 import uuid
 
 # Litery, które nie rozkładają się w NFD na "bazę + akcent", a trzeba je zrównać.
@@ -50,7 +51,9 @@ class Book(dict):
     def from_dict(cls, data):
         book = cls(copy.deepcopy(BOOK_DEFAULTS))
         book.update(data)
-        book["id"] = str(data.get("id") or uuid.uuid4().hex)
+        bid = str(data.get("id") or "")
+        # id trafia do nazw plików okładek — przyjmujemy tylko bezpieczne znaki
+        book["id"] = bid if re.fullmatch(r"[0-9A-Za-z_-]{1,64}", bid) else uuid.uuid4().hex
         if not book["added_at"]:
             book["added_at"] = time.time()
         # spójność: długości muszą odpowiadać liczbie plików

@@ -54,7 +54,9 @@ def lib_dir(tmp_path):
 @pytest.fixture
 def library(lib_dir):
     import library as lib
-    return lib.Library(lib_dir)
+    L = lib.Library(lib_dir)
+    L.settings["lang"] = "pl"      # testy sprawdzają polskie napisy niezależnie od języka systemu
+    return L
 
 
 def make_wav(path, seconds=2, rate=8000):
