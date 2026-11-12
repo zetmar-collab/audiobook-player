@@ -72,6 +72,12 @@ def _dark_palette():
     return p
 
 
+_COMMON_QSS = """
+QPushButton { min-height: 22px; padding: 4px 10px; }
+QComboBox { min-height: 22px; }
+QPushButton:focus, QLineEdit:focus { border: 1px solid #3b82f6; }
+"""
+
 _DARK_QSS = """
 QToolTip { color: #e6e8ea; background-color: #26292d; border: 1px solid #3a3f45; }
 QToolBar { border: none; padding: 3px; }
@@ -104,10 +110,10 @@ def apply_theme(app, theme):
     app.setStyle("Fusion")
     if _active == "dark":
         app.setPalette(_dark_palette())
-        app.setStyleSheet(_DARK_QSS)
+        app.setStyleSheet(_COMMON_QSS + _DARK_QSS)
     else:
         app.setPalette(app.style().standardPalette())
-        app.setStyleSheet(_LIGHT_QSS)
+        app.setStyleSheet(_COMMON_QSS + _LIGHT_QSS)
     return _active
 
 

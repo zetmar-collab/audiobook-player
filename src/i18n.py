@@ -102,6 +102,14 @@ _T = {
 
     # --- zakładki
     "bookmark_add": ("Dodaj zakładkę", "Add bookmark"),
+    "bookmark_btn_add": ("+ Zakładka", "+ Bookmark"),
+    "bookmark_btn_list": ("Zakładki", "Bookmarks"),
+    "bookmarks_count": ("zakładek: {n}", "bookmarks: {n}"),
+    "empty_library_hint": ("Biblioteka jest pusta.\nPrzeciągnij tu katalog z audiobookiem albo użyj „Dodaj katalog” (Ctrl+O).",
+                           "Your library is empty.\nDrop an audiobook folder here or use “Add folder” (Ctrl+O)."),
+    "no_match_hint": ("Brak książek pasujących do filtra.", "No books match the current filter."),
+    "no_description": ("Brak opisu. Pobierz metadane z menu kontekstowego książki.",
+                       "No description. Fetch metadata from the book’s context menu."),
     "bookmark_added": ("Dodano zakładkę: {title}", "Bookmark added: {title}"),
     "bookmark_default": ("Zakładka {time}", "Bookmark {time}"),
     "bookmarks_open": ("Zakładki…", "Bookmarks…"),

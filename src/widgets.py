@@ -54,7 +54,7 @@ class BookItemWidget(QWidget):
         if book.get("finished"):
             bits.append(tr("badge_finished"))
         if book.get("bookmarks"):
-            bits.append(f"🔖 {len(book['bookmarks'])}")
+            bits.append(tr("bookmarks_count", n=len(book["bookmarks"])))
         info = plain_label(" · ".join(bits))
         info.setStyleSheet(f"color: {muted}; font-size: 11px;")
         bar = QProgressBar()
@@ -66,6 +66,23 @@ class BookItemWidget(QWidget):
             col.addWidget(w)
         lay.addLayout(col, 1)
 
+        self._bar = bar
         pct = plain_label(f"{int(book.progress_frac * 100)}%")
         pct.setStyleSheet(f"color: {muted};")
+        pct.setFixedWidth(44)          # stała szerokość: paski postępu w całej liście kończą się równo
+        pct.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         lay.addWidget(pct)
+        self._muted_labels = [(author, ""), (info, "font-size: 11px;"), (pct, "")]
+        self._muted = muted
+
+    def set_selected(self, selected):
+        """Na zaznaczonym (niebieskim) wierszu szary tekst byłby nieczytelny — zmieniamy
+        kolory na kontrastowe i odwracamy pasek postępu."""
+        color = "#ffffff" if selected else self._muted
+        for label, extra in self._muted_labels:
+            label.setStyleSheet(f"color: {color}; {extra}")
+        if selected:
+            self._bar.setStyleSheet("QProgressBar { background-color: rgba(255,255,255,70); }"
+                                    "QProgressBar::chunk { background-color: #ffffff; }")
+        else:
+            self._bar.setStyleSheet("")

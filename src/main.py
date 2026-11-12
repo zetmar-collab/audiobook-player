@@ -151,6 +151,7 @@ class MainWindow(QMainWindow):
         m.addAction(self._act(tr("add_many"), self.add_many))
         m.addAction(self._act(tr("add_file"), self.add_file))
         m.addSeparator()
+        m.addAction(self._act(tr("clear_library"), self.clear_library))   # destrukcyjne: tylko w menu
         m.addAction(self._act(tr("batch_menu"), self.batch_metadata))
         m.addAction(self._act(tr("stats_menu"), self.show_stats))
         m.addSeparator()
@@ -231,8 +232,6 @@ class MainWindow(QMainWindow):
         tool(tr("add_many"), QStyle.StandardPixmap.SP_DirIcon, self.add_many)
         tool(tr("add_file"), QStyle.StandardPixmap.SP_FileIcon, self.add_file)
         tb.addSeparator()
-        tool(tr("clear_library"), QStyle.StandardPixmap.SP_TrashIcon, self.clear_library)
-        tb.addSeparator()
 
         tb.addWidget(QLabel(tr("sort")))
         self.sort_combo = QComboBox()
@@ -280,7 +279,7 @@ class MainWindow(QMainWindow):
         self.chapter_label = QLabel(tr("files_chapters"))
         self.chapter_list = QListWidget()
         self.chapter_list.itemActivated.connect(self.jump_to_chapter)
-        self.detail_desc = QTextEdit(readOnly=True)
+        self.detail_desc = QTextEdit(readOnly=True, placeholderText=tr("no_description"))
         self.detail_desc.setMaximumHeight(130)
         for w, stretch in ((self.detail_cover, 0), (self.detail_title, 0), (self.detail_author, 0),
                            (self.chapter_label, 0), (self.chapter_list, 1), (self.detail_desc, 0)):
@@ -288,11 +287,23 @@ class MainWindow(QMainWindow):
         split.addWidget(right)
         split.setSizes([620, 400])
         self.book_list.currentItemChanged.connect(lambda *_: self.show_details())
+        self.book_list.currentItemChanged.connect(self._restyle_selection)
 
         # dolny pasek odtwarzacza
         bottom = QWidget()
         blay = QVBoxLayout(bottom)
         blay.setContentsMargins(8, 4, 8, 6)
+
+        self.now_label = plain_label(tr("nothing_playing"))
+        f = self.now_label.font()
+        f.setBold(True)
+        self.now_label.setFont(f)
+        self.book_time_label = plain_label("")
+        self.book_time_label.setStyleSheet(f"color: {themes.muted_color()};")
+        info_row = QHBoxLayout()
+        info_row.addWidget(self.now_label, 1)
+        info_row.addWidget(self.book_time_label)
+        blay.addLayout(info_row)
 
         srow = QHBoxLayout()
         self.pos_label = QLabel("00:00")
@@ -306,14 +317,8 @@ class MainWindow(QMainWindow):
         srow.addWidget(self.dur_label)
         blay.addLayout(srow)
 
-        self.book_time_label = plain_label("", alignment=Qt.AlignmentFlag.AlignCenter)
-        self.book_time_label.setStyleSheet(f"color: {themes.muted_color()};")
-        blay.addWidget(self.book_time_label)
-
         crow = QHBoxLayout()
-        self.now_label = plain_label(tr("nothing_playing"))
-        self.now_label.setMinimumWidth(200)
-        crow.addWidget(self.now_label, 1)
+        crow.addStretch(1)
 
         def btn(icon, tip, slot, text=None):
             b = QPushButton(text) if text else QPushButton()
@@ -333,10 +338,10 @@ class MainWindow(QMainWindow):
         btn(None, tr("fwd_30"), lambda: self.ctl.skip(30000), "+30s")
         btn(QStyle.StandardPixmap.SP_MediaSkipForward, tr("next_chapter"), self.next_chapter)
         crow.addSpacing(6)
-        btn(None, tr("bookmark_add"), self.add_bookmark, "🔖+")
-        btn(None, tr("bookmarks_open"), self.show_bookmarks, "🔖")
+        btn(None, tr("bookmark_add"), self.add_bookmark, tr("bookmark_btn_add"))
+        btn(None, tr("bookmarks_open"), self.show_bookmarks, tr("bookmark_btn_list"))
 
-        crow.addSpacing(10)
+        crow.addStretch(1)
         crow.addWidget(QLabel(tr("speed")))
         self.speed_combo = QComboBox()
         for sp in SPEEDS:
@@ -345,7 +350,9 @@ class MainWindow(QMainWindow):
         crow.addWidget(self.speed_combo)
 
         crow.addSpacing(10)
-        crow.addWidget(QLabel("🔊"))
+        vol_icon = QLabel()
+        vol_icon.setPixmap(style.standardIcon(QStyle.StandardPixmap.SP_MediaVolume).pixmap(18, 18))
+        crow.addWidget(vol_icon)
         self.vol_slider = QSlider(Qt.Orientation.Horizontal)
         self.vol_slider.setRange(0, 100)
         self.vol_slider.setFixedWidth(90)
@@ -537,11 +544,25 @@ class MainWindow(QMainWindow):
             self.book_list.setItemWidget(item, widget)
             if book["id"] == selected_id:
                 target = item
+        if not books:                      # pusty stan: podpowiedź zamiast pustego pola
+            hint = QListWidgetItem(tr("empty_library_hint") if not self.library.books
+                                   else tr("no_match_hint"))
+            hint.setFlags(Qt.ItemFlag.NoItemFlags)
+            hint.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            hint.setSizeHint(QSize(300, 120))
+            self.book_list.addItem(hint)
         self.book_list.blockSignals(False)
         if target:
             self.book_list.setCurrentItem(target)
+            self._restyle_selection(target, None)
         self.book_list.setUpdatesEnabled(True)
         self.show_details()
+
+    def _restyle_selection(self, current, previous):
+        for item, selected in ((previous, False), (current, True)):
+            w = self.book_list.itemWidget(item) if item else None
+            if w is not None and hasattr(w, "set_selected"):
+                w.set_selected(selected)
 
     def book_from_item(self, item):
         bid = item.data(Qt.ItemDataRole.UserRole) if item else None

@@ -44,7 +44,11 @@ def test_details_panel_is_cleared_after_clearing_library(win, library, audio_dir
     assert win.detail_title.text() == "Ksiazka A" and win.chapter_list.count() == 1
     monkeypatch.setattr(dialogs, "confirm", lambda *a, **k: True)
     win.clear_library()
-    assert win.book_list.count() == 0
+    # zostaje tylko nieaktywna podpowiedź "biblioteka jest pusta" (bez id książki)
+    assert win.book_list.count() == 1
+    hint = win.book_list.item(0)
+    assert hint.data(Qt.ItemDataRole.UserRole) is None and not (hint.flags() & Qt.ItemFlag.ItemIsSelectable)
+    assert win.selected_book() is None
     assert win.detail_title.text() == "" and win.chapter_list.count() == 0   # brak „ducha"
 
 
